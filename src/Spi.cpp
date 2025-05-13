@@ -88,7 +88,7 @@
 	 } 
      std::cout << std::endl;
 	 RxMessage = this->RxMessage.msg;
-     std::cout << "RxMessage: " <<  RxMessage.sync << std::endl;
+     //std::cout << "RxMessage: " <<  RxMessage.sync << std::endl;
 	 return (RxMessage.sync == MESSAGE_SYNC_VALUE);
  }
  

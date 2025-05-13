@@ -104,7 +104,7 @@ int main(int argc, char** argv)
         {
             if(spi.transfer(TxMsg, RxMsg))
             {
-                RCLCPP_INFO(node->get_logger(), "Transmitted pose: x=%.3f, y=%.3f, theta=%.3f", TxMsg.conf.x, TxMsg.conf.y, TxMsg.conf.theta);
+                RCLCPP_INFO(node->get_logger(), "Transmitted speed: x=%.3f, y=%.3f, w=%.3f", TxMsg.speed.x, TxMsg.speed.y, TxMsg.speed.w);
                 transformStamped.header.stamp = node->get_clock()->now();
                 transformStamped.header.frame_id = "odom";
                 transformStamped.child_frame_id = "base_footprint";
