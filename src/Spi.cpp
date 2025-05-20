@@ -49,12 +49,7 @@
 	 // GPIO18
 	 bcm2835_gpio_fsel(RESPONSE_PIN, BCM2835_GPIO_FSEL_INPT);
 	 std::cout << "SPI INIT SUCCESFUL! " << std::endl;
-	 
-	 //CS_PIN
-	//  bcm2835_gpio_fsel(CS_PIN, BCM2835_GPIO_FSEL_OUTP);
-	//  bcm2835_gpio_write(CS_PIN, HIGH);
 
-	 
 	 return true;
  }
  
@@ -72,14 +67,9 @@
 
 	 for (int i=0; i<MESSAGE_SIZE; i++)
 	 {
-	 	 //bcm2835_gpio_write(CS_PIN, LOW);
-		 //cs_pin_state = bcm2835_gpio_lev(CS_PIN);
-         //std::cout << "CS_PIN state: " << (cs_pin_state == HIGH ? "HIGH" : "LOW") << std::endl;
+	 	 
 		 this->RxMessage.data[i] = bcm2835_spi_transfer(msg.data[i]);
-		 //bcm2835_gpio_write(CS_PIN, HIGH);
-		 //cs_pin_state = bcm2835_gpio_lev(CS_PIN);
-         //std::cout << "CS_PIN state: " << (cs_pin_state == HIGH ? "HIGH" : "LOW") << std::endl;
-		}
+	 }
 
      std::cout << "Received: ";
 	 for (int i=0; i<MESSAGE_SIZE; i++)
@@ -88,7 +78,7 @@
 	 } 
      std::cout << std::endl;
 	 RxMessage = this->RxMessage.msg;
-     //std::cout << "RxMessage: " <<  RxMessage.sync << std::endl;
+     
 	 return (RxMessage.sync == MESSAGE_SYNC_VALUE);
  }
  
