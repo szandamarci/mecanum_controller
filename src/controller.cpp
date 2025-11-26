@@ -1,6 +1,7 @@
 #include <memory>
 #include <chrono>
 #include <rclcpp/rclcpp.hpp>
+#include <bits/stdc++.h>
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include "geometry_msgs/msg/twist.hpp"
 #include <tf2/LinearMath/Transform.h>
@@ -11,77 +12,46 @@
 #include <tf2/utils.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
-#include "mecanum_common/srv/set_configuration.hpp"
-#include "mecanum_common/srv/set_speed.hpp"
 #include "Spi.h"
 
 using namespace mecanum;
-using std::placeholders::_1;
-using std::placeholders::_2;
+
 Spi spi;
 SpiMessage TxMsg, RxMsg;
 std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster;
 std::shared_ptr<tf2_ros::Buffer> tf_buffer;
 std::shared_ptr<tf2_ros::TransformListener> tf_listener;
 rclcpp::Node::SharedPtr node;
-float temp=0.0;
 
-void updateRobotPose()
+float x_threshold=0.5;
+float y_threshold=0.5;
+float z_threshold=0.5;
+float Theta=0.0;
+
+void updatePose()
 {   
-    try {
-    geometry_msgs::msg::TransformStamped transformStamped;
-    transformStamped = tf_buffer->lookupTransform("odom", "base_footprint", tf2::TimePointZero);
-
-    TxMsg.conf.x = static_cast<float>(transformStamped.transform.translation.x);
-    TxMsg.conf.y = static_cast<float>(transformStamped.transform.translation.y);
-    TxMsg.conf.theta = static_cast<float>(tf2::getYaw(transformStamped.transform.rotation));
-    }
-    catch (tf2::TransformException &ex){
-        RCLCPP_ERROR(node->get_logger(), "TF error: %s", ex.what());
-    }
+    
+    TxMsg.conf.x = 0;
+    TxMsg.conf.y = 0;
+    TxMsg.conf.theta = 0;
+    
 
 }
 
 void cmdVelCallback(const geometry_msgs::msg::Twist::SharedPtr msg)
-{
-    if(msg->linear.x>0.1)
-    {
-        msg->linear.x=0.1;
-    }
-    if(msg->linear.x<-0.1)
-    {
-        msg->linear.x=-0.1;
-    }
-    if(msg->linear.y>0.1)
-    {
-        msg->linear.y=0.1;
-    }
-    if(msg->linear.y<-0.1)
-    {
-        msg->linear.y=-0.1;
-    }
-    if(msg->angular.z>0.1)
-    {
-        msg->angular.z=0.1;
-    }
-    if(msg->angular.z<-0.1)
-    {
-        msg->angular.z=-0.1;
-    }
-    TxMsg.speed.y = static_cast<float>((msg->linear.x));
-    TxMsg.speed.x = static_cast<float>(-1*(msg->linear.y));
-    TxMsg.speed.w = static_cast<float>(msg->angular.z);
-    
+{   
+    TxMsg.speed.y = (std::clamp(static_cast<float>(msg->linear.x), -x_threshold, x_threshold));
+    TxMsg.speed.x = (-1*std::clamp(static_cast<float>(msg->linear.y), -y_threshold, y_threshold));
+    TxMsg.speed.w = (std::clamp(static_cast<float>(msg->angular.z), -z_threshold, z_threshold));
     RCLCPP_INFO(node->get_logger(), "Speed: x=%.3f, y=%.3f, theta=%.3f", TxMsg.speed.x, TxMsg.speed.y, TxMsg.speed.w);
 
 }
 
 int main(int argc, char** argv)
 {
-
+    
     rclcpp::init(argc, argv);
     node = std::make_shared<rclcpp::Node>("mecanum_controller", rclcpp::NodeOptions().arguments({"--ros-args", "--log-level", "debug"}));
-    RCLCPP_INFO(node->get_logger(), "Eddig jut el");
     
     if (!spi.init())
     {
@@ -105,7 +75,8 @@ int main(int argc, char** argv)
 
     auto cmd_vel_subscriber = node->create_subscription<geometry_msgs::msg::Twist>("/cmd_vel", 10, cmdVelCallback);
     RCLCPP_INFO(node->get_logger(), "Subscribed to /cmd_vel");
-    
+    updatePose();
+    spi.transfer(TxMsg, RxMsg);
     rclcpp::Rate loop_rate(10);
     while (rclcpp::ok())
     {
@@ -116,30 +87,24 @@ int main(int argc, char** argv)
             if(spi.transfer(TxMsg, RxMsg))
             {
                 RCLCPP_INFO(node->get_logger(), "Transmitted speed: x=%.3f, y=%.3f, w=%.3f", TxMsg.speed.x, TxMsg.speed.y, TxMsg.speed.w);
+                RCLCPP_INFO(node->get_logger(), "Received speed: x=%.3f, y=%.3f, w=%.3f", RxMsg.speed.x, RxMsg.speed.y, RxMsg.speed.w);
                 transformStamped.header.stamp = node->get_clock()->now();
                 transformStamped.header.frame_id = "odom";
                 transformStamped.child_frame_id = "base_footprint";
-                transformStamped.transform.translation.y = -RxMsg.conf.x;
-                transformStamped.transform.translation.x= RxMsg.conf.y;
+                transformStamped.transform.translation.y = - RxMsg.conf.x;
+                transformStamped.transform.translation.x = RxMsg.conf.y;
                 transformStamped.transform.translation.z = 0.0;
-                
-                if (abs(RxMsg.conf.theta - temp)>0.004)
-                {
+                Theta=Theta+0.1*TxMsg.speed.w;
                 tf2::Quaternion q;
-                q.setRPY(0, 0, RxMsg.conf.theta);
+                q.setRPY(0, 0, Theta);
                 transformStamped.transform.rotation.x = q.x();
                 transformStamped.transform.rotation.y = q.y();
                 transformStamped.transform.rotation.z = q.z();
                 transformStamped.transform.rotation.w = q.w();
-                
-                
-                updateRobotPose();
-                }
-                
-                temp=RxMsg.conf.theta;
                 tf_broadcaster->sendTransform(transformStamped);
                 RCLCPP_INFO(node->get_logger(), "Received pose: x=%.3f, y=%.3f, theta=%.3f", RxMsg.conf.x, RxMsg.conf.y, RxMsg.conf.theta);
-                
+                updatePose();
+                RCLCPP_INFO(node->get_logger(), "Transmitted pose: x=%.3f, y=%.3f, theta=%.3f", TxMsg.conf.x, TxMsg.conf.y, TxMsg.conf.theta);
             }
             else
             {
