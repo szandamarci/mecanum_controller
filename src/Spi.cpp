@@ -3,6 +3,9 @@
  *
  *  Created on: May 31, 2015
  *      Author: miki
+ *
+ *  Modified on: May 13, 2025
+ *  Modified by: Szanda Márton
  */
 
  #include "Spi.h"
