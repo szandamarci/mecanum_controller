@@ -75,7 +75,7 @@ int main(int argc, char** argv)
 
     auto cmd_vel_subscriber = node->create_subscription<geometry_msgs::msg::Twist>("/cmd_vel", 10, cmdVelCallback);
     RCLCPP_INFO(node->get_logger(), "Subscribed to /cmd_vel");
-    updatePose();
+    
     spi.transfer(TxMsg, RxMsg);
     rclcpp::Rate loop_rate(10);
     while (rclcpp::ok())
