@@ -72,9 +72,42 @@ int main(int argc, char** argv)
     tf_listener = std::make_shared<tf2_ros::TransformListener>(*tf_buffer);
     tf_broadcaster = std::make_shared<tf2_ros::TransformBroadcaster>(node);
     geometry_msgs::msg::TransformStamped transformStamped;
-    auto t_act = std::chrono::high_resolution_clock::now();
-    auto t_prev = std::chrono::high_resolution_clock::now();
-    double t_delta = std::chrono::duration<double, std::milli>(t_act-t_prev).count();
+    auto t_act = 0;
+    auto t_prev = 0;
+    auto t_delta = 0;
+    auto cmd_vel_subscriber = node->create_subscription<geometry_msgs::msg::Twist>("/cmd_vel", 10, cmdVelCallback);
+    RCLCPP_INFO(node->get_logger(), "Subscribed to /cmd_vel");
+    
+    spi.transfer(TxMsg, RxMsg);
+    rclcpp::Rate loop_rate(10);
+    while (rclcpp::ok())
+    {
+
+
+        if(spi.transferSignal())
+        {
+            if(spi.transfer(TxMsg, RxMsg))
+            {   
+                t_act = std::chrono::high_resolution_clock::now();
+                RCLCPP_INFO(node->get_logger(), "Transmitted speed: x=%.3f, y=%.3f, w=%.3f", TxMsg.speed.x, TxMsg.speed.y, TxMsg.speed.w);
+                RCLCPP_INFO(node->get_logger(), "Received speed: x=%.3f, y=%.3f, w=%.3f", RxMsg.speed.x, RxMsg.speed.y, RxMsg.speed.w);
+                transformStamped.header.stamp = node->get_clock()->now();
+                transformStamped.header.frame_id = "odom";
+                transformStamped.child_frame_id = "base_footprint";
+                transformStamped.transform.translation.y = - RxMsg.conf.x;
+                transformStamped.transform.translation.x = RxMsg.conf.y;
+                transformStamped.transform.translation.z = 0.0;
+                t_delta = t_act - t_prev;
+                Theta=Theta+t_delta*TxMsg.speed.w;
+                tf2::Quaternion q;
+                q.setRPY(0, 0, Theta);
+                transformStamped.transform.rotation.x = q.x();
+                transformStamped.transform.rotation.y = q.y();
+                transformStamped.transform.rotation.z = q.z();
+                transformStamped.transform.rotation.w = q.w();
+
+    auto t_prev = 0;
+    auto t_delta = 0;
     auto cmd_vel_subscriber = node->create_subscription<geometry_msgs::msg::Twist>("/cmd_vel", 10, cmdVelCallback);
     RCLCPP_INFO(node->get_logger(), "Subscribed to /cmd_vel");
     
@@ -87,11 +120,9 @@ int main(int argc, char** argv)
         if(spi.transferSignal())
         {
             if(spi.transfer(TxMsg, RxMsg))
-            {  
+            {	
 		t_act = std::chrono::high_resolution_clock::now();
-		t_delta = std::chrono::duration<double, std::milli>(t_act-t_prev).count();
-		t_prev = t_act;
-		RCLCPP_INFO(node->get_logger(), "Transmitted speed: x=%.3f, y=%.3f, w=%.3f", TxMsg.speed.x, TxMsg.speed.y, TxMsg.speed.w);
+                RCLCPP_INFO(node->get_logger(), "Transmitted speed: x=%.3f, y=%.3f, w=%.3f", TxMsg.speed.x, TxMsg.speed.y, TxMsg.speed.w);
                 RCLCPP_INFO(node->get_logger(), "Received speed: x=%.3f, y=%.3f, w=%.3f", RxMsg.speed.x, RxMsg.speed.y, RxMsg.speed.w);
                 transformStamped.header.stamp = node->get_clock()->now();
                 transformStamped.header.frame_id = "odom";
@@ -99,7 +130,8 @@ int main(int argc, char** argv)
                 transformStamped.transform.translation.y = - RxMsg.conf.x;
                 transformStamped.transform.translation.x = RxMsg.conf.y;
                 transformStamped.transform.translation.z = 0.0;
-                Theta=Theta+(t_delta / 1000.0)*TxMsg.speed.w;
+                t_delta = t_act - t_prev;
+		Theta=Theta+t_delta*TxMsg.speed.w;
                 tf2::Quaternion q;
                 q.setRPY(0, 0, Theta);
                 transformStamped.transform.rotation.x = q.x();
@@ -108,9 +140,9 @@ int main(int argc, char** argv)
                 transformStamped.transform.rotation.w = q.w();
                 tf_broadcaster->sendTransform(transformStamped);
                 RCLCPP_INFO(node->get_logger(), "Received pose: x=%.3f, y=%.3f, theta=%.3f", RxMsg.conf.x, RxMsg.conf.y, RxMsg.conf.theta);
-
                 RCLCPP_INFO(node->get_logger(), "Transmitted pose: x=%.3f, y=%.3f, theta=%.3f", TxMsg.conf.x, TxMsg.conf.y, TxMsg.conf.theta);
-            }
+ 	        t_prev = t_act;   
+}
             else
             {
                 RCLCPP_INFO(node->get_logger(), "SPI Error");
