@@ -87,11 +87,11 @@ int main(int argc, char** argv)
         if(spi.transferSignal())
         {
             if(spi.transfer(TxMsg, RxMsg))
-            {  
-		t_act = std::chrono::high_resolution_clock::now();
-		t_delta = std::chrono::duration<double, std::milli>(t_act-t_prev).count();
-		t_prev = t_act;
-		RCLCPP_INFO(node->get_logger(), "Transmitted speed: x=%.3f, y=%.3f, w=%.3f", TxMsg.speed.x, TxMsg.speed.y, TxMsg.speed.w);
+            {   
+                t_act = std::chrono::high_resolution_clock::now();
+                t_delta = std::chrono::duration<double, std::milli>(t_act-t_prev).count();
+                t_prev = t_act;
+                RCLCPP_INFO(node->get_logger(), "Transmitted speed: x=%.3f, y=%.3f, w=%.3f", TxMsg.speed.x, TxMsg.speed.y, TxMsg.speed.w);
                 RCLCPP_INFO(node->get_logger(), "Received speed: x=%.3f, y=%.3f, w=%.3f", RxMsg.speed.x, RxMsg.speed.y, RxMsg.speed.w);
                 transformStamped.header.stamp = node->get_clock()->now();
                 transformStamped.header.frame_id = "odom";
